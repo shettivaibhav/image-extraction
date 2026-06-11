@@ -1,8 +1,10 @@
 import { useRef, useState, useCallback } from 'react'
+import CameraCapture from './CameraCapture'
 
 export default function ImageUploader({ onImageSelected }) {
   const inputRef = useRef(null)
   const [dragOver, setDragOver] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   const handleFile = useCallback(
     (file) => {
@@ -95,7 +97,7 @@ export default function ImageUploader({ onImageSelected }) {
         />
       </div>
 
-      {/* Camera capture on mobile */}
+      {/* Camera capture button */}
       <button
         className="mt-4 flex items-center gap-2 text-sm font-medium px-5 py-3 rounded-xl transition-smooth"
         style={{
@@ -103,18 +105,22 @@ export default function ImageUploader({ onImageSelected }) {
           border: '1px solid rgba(255,255,255,0.08)',
           color: 'var(--text-secondary)',
         }}
-        onClick={() => {
-          const input = document.createElement('input')
-          input.type = 'file'
-          input.accept = 'image/*'
-          input.capture = 'environment'
-          input.onchange = (e) => handleFile(e.target.files[0])
-          input.click()
-        }}
+        onClick={() => setCameraOpen(true)}
         id="camera-capture-btn"
       >
         📸 Capture with Camera
       </button>
+
+      {/* Camera Capture Modal */}
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={(file) => {
+            handleFile(file)
+            setCameraOpen(false)
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   )
 }

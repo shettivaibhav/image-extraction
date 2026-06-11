@@ -118,10 +118,22 @@ export default function ImageExtractor({ imageSrc, imageFile, onReset, showToast
         img.src = cutoutUrl
       } catch (err) {
         console.error('Segmentation failed:', err)
-        const message =
-          err.response?.status === 503
-            ? '⚠️ Backend not connected. Start the Kaggle notebook first.'
-            : '❌ Segmentation failed. Please try again.'
+        let message = '❌ Segmentation failed. Please try again.'
+        
+        if (!err.response) {
+          // Local FastAPI server is down/not responding
+          message = '⚠️ Local backend server is not running. Please start it using start.bat.'
+        } else if (err.response.status === 503) {
+          // Specific 503 error details from backend (either missing URL or offline ngrok)
+          message = err.response.data?.detail || '⚠️ Backend not connected. Start the Kaggle notebook first.'
+        } else if (err.response.status === 502) {
+          message = '❌ Kaggle segmentation failed. Check the Kaggle notebook logs.'
+        } else if (err.response.status === 504) {
+          message = '⏱️ Kaggle backend timed out. Try a smaller image or wait a moment.'
+        } else if (err.response.data?.detail) {
+          message = `❌ Error: ${err.response.data.detail}`
+        }
+        
         showToast(message)
       } finally {
         setProcessing(false)
@@ -183,7 +195,9 @@ export default function ImageExtractor({ imageSrc, imageFile, onReset, showToast
     const a = document.createElement('a')
     a.href = cutout.url
     a.download = 'cutout.png'
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     showToast('📥 Download started!')
   }, [cutout, showToast])
 

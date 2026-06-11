@@ -1,0 +1,20 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Node / Frontend dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Python / Backend files
+__pycache__/
+backend/__pycache__/
+*.pyc
+backend/.env
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -20,8 +20,6 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-KAGGLE_API_URL = os.getenv("KAGGLE_API_URL", "")
-
 app = FastAPI(title="Smart Subject Lift — Proxy")
 
 app.add_middleware(
@@ -35,9 +33,11 @@ app.add_middleware(
 
 @app.get("/api/health")
 async def health():
+    load_dotenv(override=True)
+    kaggle_url = os.getenv("KAGGLE_API_URL", "")
     return {
         "status": "ok",
-        "kaggle_url_configured": bool(KAGGLE_API_URL),
+        "kaggle_url_configured": bool(kaggle_url),
     }
 
 
@@ -51,7 +51,9 @@ async def segment(
     Receive an image and normalised click coordinates (0‑1),
     forward to the Kaggle SAM endpoint, and return the cutout PNG.
     """
-    if not KAGGLE_API_URL:
+    load_dotenv(override=True)
+    kaggle_url = os.getenv("KAGGLE_API_URL", "")
+    if not kaggle_url:
         raise HTTPException(
             status_code=503,
             detail="KAGGLE_API_URL is not configured. "
@@ -65,15 +67,21 @@ async def segment(
 
         # Forward to Kaggle
         resp = requests.post(
-            f"{KAGGLE_API_URL.rstrip('/')}/segment",
+            f"{kaggle_url.rstrip('/')}/segment",
             files={"image": (image.filename, image_bytes, image.content_type)},
             data={"x": str(x), "y": str(y)},
             headers={"ngrok-skip-browser-warning": "true"},
             timeout=120,
         )
 
-        if resp.status_code != 200:
+        if resp.status_code != 200 or "text/html" in resp.headers.get("Content-Type", ""):
             logger.error(f"Kaggle responded with {resp.status_code}: {resp.text[:200]}")
+            # If the response contains ngrok warning/error signs, or is a gateway error
+            if "ngrok" in resp.text.lower() or resp.status_code in [404, 502, 503, 504]:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Kaggle notebook/ngrok tunnel is offline. Please make sure the Kaggle notebook is running and KAGGLE_API_URL in backend/.env is updated."
+                )
             raise HTTPException(status_code=502, detail="Kaggle segmentation failed")
 
         return StreamingResponse(
